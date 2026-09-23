@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import { actions, recentFoods, useData } from '../lib/store';
 import { MEAL_LABELS, MEAL_ORDER, fmt } from '../lib/calc';
-import { FOODS, findFood, searchFoods, type Food } from '../lib/foods';
+import { FOODS, customToFood, findFood, searchFoods, type Food } from '../lib/foods';
 import { formatDay } from '../lib/date';
 import { back } from '../lib/router';
 import { parseNum } from '../lib/num';
 import type { MealType } from '../lib/types';
 import { EstimateNote, Header, Segmented } from '../components/Layout';
+import { CustomFoodSheet } from '../components/CustomFoodSheet';
 
 const AMOUNTS = [0.5, 1, 1.5, 2];
+const POPULAR = ['牛丼 並盛', 'ラーメン', 'カレーライス', '定食（一般的）', 'おにぎり', 'ビール 350ml', 'ハイボール', 'コーヒー（ブラック）'];
 
 function mealTypeByTime(): MealType {
   const h = new Date().getHours();
@@ -32,9 +34,22 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
   const [manualKcal, setManualKcal] = useState<string | null>(null);
   const [showSuggest, setShowSuggest] = useState(false);
   const [toast, setToast] = useState('');
+  // マイメニュー登録シート（開いているときは初期のメニュー名を持つ）
+  const [sheetName, setSheetName] = useState<string | null>(null);
 
-  const suggestions = useMemo(() => searchFoods(name), [name]);
+  const custom = data.customFoods;
+  const suggestions = useMemo(() => searchFoods(name, 8, custom), [name, custom]);
   const recent = useMemo(() => recentFoods(data), [data]);
+  // よく使う：マイメニュー（記録回数の多い順）→ 定番メニュー
+  const popular = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const m of data.meals) count.set(m.foodName, (count.get(m.foodName) ?? 0) + 1);
+    const mine = [...custom]
+      .sort((a, b) => (count.get(b.name) ?? 0) - (count.get(a.name) ?? 0))
+      .map(customToFood);
+    const names = new Set(mine.map((f) => f.name));
+    return [...mine, ...POPULAR.filter((n) => !names.has(n)).map((n) => FOODS.find((x) => x.name === n)!)];
+  }, [data.meals, custom]);
 
   const autoKcal = base ? Math.round(base.kcal * amount) : null;
   const kcal = manualKcal !== null ? parseNum(manualKcal) : autoKcal;
@@ -57,7 +72,7 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
     setName(v);
     setShowSuggest(true);
     // 完全一致すればそのまま推定値を採用
-    const exact = findFood(v);
+    const exact = findFood(v, custom);
     setBase(exact ?? null);
   };
 
@@ -113,9 +128,13 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
               {suggestions.map((f) => (
                 <li key={f.name}>
                   <button type="button" onClick={() => pick(f)}>
-                    <span>{f.name}</span>
+                    <span>
+                      {f.custom && <i className="tag-mine">マイ</i>}
+                      {f.name}
+                    </span>
                     <small>
-                      {f.unit} 約{fmt(f.kcal)}kcal
+                      {f.unit} {f.custom ? '' : '約'}
+                      {fmt(f.kcal)}kcal
                     </small>
                   </button>
                 </li>
@@ -123,8 +142,11 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
             </ul>
           )}
           {showSuggest && name && suggestions.length === 0 && !base && (
-            <p className="hint">登録データにありません。下のカロリー欄に目安を入力してください。</p>
+            <p className="hint">登録データにありません。下のカロリー欄に目安を入力するか、マイメニューに登録できます。</p>
           )}
+          <button type="button" className="btn outline block" onClick={() => setSheetName(base ? '' : name.trim())}>
+            {name.trim() && !base ? `＋「${name.trim()}」をマイメニューに登録` : '＋ 自分でメニューを登録'}
+          </button>
 
           {!name && recent.length > 0 && !editing && (
             <div className="field">
@@ -136,7 +158,7 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
                     type="button"
                     className="chip"
                     onClick={() => {
-                      const f = findFood(m.foodName);
+                      const f = findFood(m.foodName, custom);
                       pick(f ?? { name: m.foodName, unit: m.unit, kcal: Math.round(m.kcal / (m.amount || 1)) });
                       setAmount(m.amount);
                     }}
@@ -151,16 +173,17 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
             <div className="field">
               <span>よく使う</span>
               <div className="chips">
-                {['牛丼 並盛', 'ラーメン', 'カレーライス', '定食（一般的）', 'おにぎり', 'ビール 350ml', 'ハイボール', 'コーヒー（ブラック）'].map(
-                  (n) => {
-                    const f = FOODS.find((x) => x.name === n)!;
-                    return (
-                      <button key={n} type="button" className="chip" onClick={() => pick(f)}>
-                        {f.name}
-                      </button>
-                    );
-                  },
-                )}
+                {popular.map((f) => (
+                  <button
+                    key={(f.custom ? 'mine:' : '') + f.name}
+                    type="button"
+                    className={'chip' + (f.custom ? ' mine' : '')}
+                    onClick={() => pick(f)}
+                  >
+                    {f.custom && '★ '}
+                    {f.name}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -199,10 +222,25 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
               <em>kcal</em>
             </div>
           </label>
-          <EstimateNote>表示カロリーは一般的な量での推定値（目安）です。お店や量によって変わります。数値は直接修正できます。</EstimateNote>
+          <EstimateNote>
+            {base?.custom
+              ? 'マイメニューに登録したカロリー（1食分）を使っています。数値は直接修正できます。'
+              : '表示カロリーは一般的な量での推定値（目安）です。お店や量によって変わります。数値は直接修正できます。'}
+          </EstimateNote>
         </div>
 
         {toast && <div className="toast" role="status">{toast}</div>}
+        {sheetName !== null && (
+          <CustomFoodSheet
+            initialName={sheetName}
+            onClose={() => setSheetName(null)}
+            onPicked={(c) => {
+              pick(customToFood(c));
+              setAmount(1);
+              setSheetName(null);
+            }}
+          />
+        )}
         <div className="sticky-actions">
           {!editing && (
             <button className="btn" disabled={!valid} onClick={() => save(true)}>

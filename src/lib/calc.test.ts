@@ -19,6 +19,7 @@ const base = (): AppData => ({
   weights: [],
   meals: [],
   exercises: [],
+  customFoods: [],
 });
 
 describe('基礎代謝・日常活動', () => {
