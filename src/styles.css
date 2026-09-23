@@ -306,3 +306,8 @@ h2 { font-size: 15px; color: var(--text-2); font-weight: 700; }
 .sheet-head h2 { font-size: 17px; color: var(--text); }
 .sheet-form { display: flex; flex-direction: column; gap: 14px; }
 .sheet-list .list li.editing { background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+
+/* 食事の自由入力 */
+.free-card { border: 1.5px solid var(--primary); }
+.free-card h2 { font-size: 17px; color: var(--text); }
+.section-title { font-size: 14px; color: var(--text-2); margin: 6px 2px -6px; }
