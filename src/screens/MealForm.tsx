@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { actions, recentFoods, useData } from '../lib/store';
 import { MEAL_LABELS, MEAL_ORDER, fmt } from '../lib/calc';
 import { FOODS, customToFood, findFood, searchFoods, type Food } from '../lib/foods';
 import { formatDay } from '../lib/date';
 import { back } from '../lib/router';
 import { parseNum } from '../lib/num';
+import { buildFreeMeal } from '../lib/meal';
 import type { MealType } from '../lib/types';
 import { EstimateNote, Header, Segmented } from '../components/Layout';
 import { CustomFoodSheet } from '../components/CustomFoodSheet';
@@ -36,6 +37,12 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
   const [toast, setToast] = useState('');
   // マイメニュー登録シート（開いているときは初期のメニュー名を持つ）
   const [sheetName, setSheetName] = useState<string | null>(null);
+  // 自由入力（食事名＋カロリーをそのまま記録。マイメニューには登録しない）
+  const [freeName, setFreeName] = useState('');
+  const [freeKcal, setFreeKcal] = useState('');
+  const freeKcalRef = useRef<HTMLInputElement>(null);
+  const free = buildFreeMeal(date, mealType, freeName, freeKcal);
+  const freeError = !free.ok && freeKcal.trim() !== '' && freeName.trim() !== '' ? free.error : '';
 
   const custom = data.customFoods;
   const suggestions = useMemo(() => searchFoods(name, 8, custom), [name, custom]);
@@ -76,6 +83,12 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
     setBase(exact ?? null);
   };
 
+  const recordFree = () => {
+    if (!free.ok) return;
+    actions.saveMeal(free.meal);
+    back(`/day/${date}`);
+  };
+
   const save = (keepAdding: boolean) => {
     if (!valid || kcal === null) return;
     actions.saveMeal({
@@ -102,7 +115,7 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
   return (
     <>
       <Header title={editing ? '食事を編集' : '食事を追加'} onBack={`/day/${date}`} />
-      <div className="page form-page">
+      <div className={'page' + (editing ? ' form-page' : '')}>
         <div className="form-date">{formatDay(date)}</div>
         <Segmented
           name="食事区分"
@@ -111,6 +124,63 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
           options={MEAL_ORDER.map((t) => ({ value: t, label: MEAL_LABELS[t] }))}
         />
 
+        {!editing && (
+          <form
+            className="card form free-card"
+            aria-label="食事を自由入力"
+            onSubmit={(e) => {
+              e.preventDefault();
+              recordFree();
+            }}
+          >
+            <h2>食事を自由入力</h2>
+            <label className="field">
+              <span>食事メニュー</span>
+              <input
+                value={freeName}
+                onChange={(e) => setFreeName(e.target.value)}
+                onKeyDown={(e) => {
+                  // 「次へ」でカロリー欄へ（ここでは送信しない）
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    freeKcalRef.current?.focus();
+                  }
+                }}
+                placeholder="例：牛丼"
+                aria-label="食事メニュー"
+                autoComplete="off"
+                enterKeyHint="next"
+                maxLength={40}
+              />
+            </label>
+            <label className="field">
+              <span>カロリー</span>
+              <div className="input-unit big">
+                <input
+                  ref={freeKcalRef}
+                  inputMode="numeric"
+                  value={freeKcal}
+                  onChange={(e) => setFreeKcal(e.target.value)}
+                  placeholder="例 650"
+                  aria-label="カロリー（自由入力）"
+                  enterKeyHint="done"
+                />
+                <em>kcal</em>
+              </div>
+            </label>
+            {freeError && (
+              <p className="form-error" role="alert">
+                {freeError}
+              </p>
+            )}
+            <button type="submit" className="btn primary big block" disabled={!free.ok}>
+              記録する
+            </button>
+            <p className="hint">入力したカロリーをそのまま記録します（マイメニューには登録されません）。</p>
+          </form>
+        )}
+
+        {!editing && <h2 className="section-title">登録済みの食事から選ぶ</h2>}
         <div className="card form">
           <label className="field">
             <span>料理名・食品名</span>
@@ -144,9 +214,6 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
           {showSuggest && name && suggestions.length === 0 && !base && (
             <p className="hint">登録データにありません。下のカロリー欄に目安を入力するか、マイメニューに登録できます。</p>
           )}
-          <button type="button" className="btn outline block" onClick={() => setSheetName(base ? '' : name.trim())}>
-            {name.trim() && !base ? `＋「${name.trim()}」をマイメニューに登録` : '＋ 自分でメニューを登録'}
-          </button>
 
           {!name && recent.length > 0 && !editing && (
             <div className="field">
@@ -227,6 +294,27 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
               ? 'マイメニューに登録したカロリー（1食分）を使っています。数値は直接修正できます。'
               : '表示カロリーは一般的な量での推定値（目安）です。お店や量によって変わります。数値は直接修正できます。'}
           </EstimateNote>
+          {!editing && (
+            <div className="btn-row">
+              <button className="btn" disabled={!valid} onClick={() => save(true)}>
+                続けて追加
+              </button>
+              <button className="btn primary" disabled={!valid} onClick={() => save(false)}>
+                保存する
+              </button>
+            </div>
+          )}
+        </div>
+
+        <h2 className="section-title">マイメニュー</h2>
+        <div className="card">
+          <button type="button" className="btn outline block" onClick={() => setSheetName(base ? '' : name.trim())}>
+            {name.trim() && !base ? `＋「${name.trim()}」をマイメニューに登録` : '＋ 自分でメニューを登録'}
+          </button>
+          <p className="hint">
+            よく食べる食事を登録しておくと「よく使う」に★で表示されます。
+            {custom.length > 0 && `登録済み ${custom.length} 件（編集・削除もここから）。`}
+          </p>
         </div>
 
         {toast && <div className="toast" role="status">{toast}</div>}
@@ -241,16 +329,13 @@ export default function MealForm({ date, editId }: { date: string; editId: strin
             }}
           />
         )}
-        <div className="sticky-actions">
-          {!editing && (
-            <button className="btn" disabled={!valid} onClick={() => save(true)}>
-              続けて追加
+        {editing && (
+          <div className="sticky-actions">
+            <button className="btn primary" disabled={!valid} onClick={() => save(false)}>
+              更新する
             </button>
-          )}
-          <button className="btn primary" disabled={!valid} onClick={() => save(false)}>
-            {editing ? '更新する' : '保存する'}
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </>
   );
