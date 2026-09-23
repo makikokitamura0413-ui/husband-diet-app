@@ -50,10 +50,18 @@ export interface ExerciseRecord {
   kcal: number;
 }
 
+/** ユーザーが自分で登録した食事メニュー（1食分のカロリー） */
+export interface CustomFood {
+  id: string;
+  name: string;
+  kcal: number;
+}
+
 export interface AppData {
   version: 1;
   settings: UserSettings | null;
   weights: WeightRecord[];
   meals: MealRecord[];
   exercises: ExerciseRecord[];
+  customFoods: CustomFood[];
 }

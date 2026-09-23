@@ -1,19 +1,29 @@
 import { useSyncExternalStore } from 'react';
-import type { AppData, ExerciseRecord, MealRecord, UserSettings, WeightRecord } from './types';
+import { normalize } from './foods';
+import type { AppData, CustomFood, ExerciseRecord, MealRecord, UserSettings, WeightRecord } from './types';
 
 const KEY = 'husband-diet-app:v1';
 
-const empty = (): AppData => ({ version: 1, settings: null, weights: [], meals: [], exercises: [] });
+const empty = (): AppData => ({ version: 1, settings: null, weights: [], meals: [], exercises: [], customFoods: [] });
 
 function load(): AppData {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return empty();
-    const parsed = JSON.parse(raw) as Partial<AppData>;
-    return { ...empty(), ...parsed, version: 1 };
+    return normalizeData(JSON.parse(raw) as Partial<AppData>);
   } catch {
     return empty();
   }
+}
+
+/** 古い形式のデータ（マイメニュー追加前など）にも欠けた項目を補う */
+function normalizeData(parsed: Partial<AppData>): AppData {
+  return {
+    ...empty(),
+    ...parsed,
+    customFoods: Array.isArray(parsed.customFoods) ? parsed.customFoods : [],
+    version: 1,
+  };
 }
 
 let state: AppData = load();
@@ -77,6 +87,25 @@ export const actions = {
   deleteExercise(id: string) {
     commit({ ...state, exercises: state.exercises.filter((e) => e.id !== id) });
   },
+  /** マイメニューを登録・更新。同じ名前が既にあればエラー */
+  saveCustomFood(rec: Omit<CustomFood, 'id'> & { id?: string }): CustomFood {
+    const name = rec.name.trim();
+    if (!name) throw new Error('メニュー名を入力してください');
+    if (!(rec.kcal >= 0)) throw new Error('カロリーを正しく入力してください');
+    if (findCustomFoodByName(state, name, rec.id)) throw new Error(`「${name}」は既に登録されています`);
+    const id = rec.id ?? newId();
+    const saved: CustomFood = { id, name, kcal: Math.round(rec.kcal) };
+    const exists = state.customFoods.some((c) => c.id === id);
+    const customFoods = exists
+      ? state.customFoods.map((c) => (c.id === id ? saved : c))
+      : [...state.customFoods, saved];
+    commit({ ...state, customFoods });
+    return saved;
+  },
+  /** マイメニューだけを削除（過去の食事記録はそのまま残る） */
+  deleteCustomFood(id: string) {
+    commit({ ...state, customFoods: state.customFoods.filter((c) => c.id !== id) });
+  },
   exportJson(): string {
     return JSON.stringify(state, null, 2);
   },
@@ -85,12 +114,18 @@ export const actions = {
     if (!Array.isArray(parsed.meals) || !Array.isArray(parsed.weights) || !Array.isArray(parsed.exercises)) {
       throw new Error('形式が正しくありません');
     }
-    commit({ ...empty(), ...parsed, version: 1 });
+    commit(normalizeData(parsed));
   },
   resetAll() {
     commit(empty());
   },
 };
+
+/** 同じ名前のマイメニュー（表記ゆれ・カタカナ/ひらがなも同一扱い）。exceptId は編集中の自分自身 */
+export function findCustomFoodByName(data: AppData, name: string, exceptId?: string): CustomFood | undefined {
+  const n = normalize(name);
+  return data.customFoods.find((c) => c.id !== exceptId && normalize(c.name) === n);
+}
 
 /** 最近使った食品（入力を減らすためのクイック候補） */
 export function recentFoods(data: AppData, limit = 6): MealRecord[] {

@@ -283,3 +283,26 @@ h2 { font-size: 15px; color: var(--text-2); font-weight: 700; }
 }
 .tt-date { font-weight: 700; margin-bottom: 2px; }
 .tooltip small { color: var(--muted); }
+
+/* マイメニュー */
+.btn.outline { background: transparent; border: 1.5px dashed var(--primary); color: var(--primary); }
+.chip.mine { border-color: var(--primary); color: var(--primary); }
+.tag-mine {
+  display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface)); color: var(--primary); vertical-align: 1px;
+}
+.form-error { margin: 0; font-size: 13px; color: var(--danger); font-weight: 600; }
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 40; background: rgba(10, 14, 20, .45);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.sheet {
+  width: 100%; max-width: 560px; max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--surface); border-radius: 18px 18px 0 0;
+  padding: 6px 16px calc(16px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 14px;
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--surface); padding-top: 6px; }
+.sheet-head h2 { font-size: 17px; color: var(--text); }
+.sheet-form { display: flex; flex-direction: column; gap: 14px; }
+.sheet-list .list li.editing { background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }

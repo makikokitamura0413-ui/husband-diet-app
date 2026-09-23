@@ -1,3 +1,5 @@
+import type { CustomFood } from './types';
+
 // 簡易食品データ。カロリーは一般的な1食分の「目安」。
 export interface Food {
   name: string;
@@ -5,6 +7,15 @@ export interface Food {
   unit: string;
   /** 検索用の別名（ひらがな・カタカナ・略称） */
   aliases?: string[];
+  /** ユーザーが登録したマイメニューなら true */
+  custom?: boolean;
+}
+
+/** マイメニューの基準量の表示 */
+export const CUSTOM_UNIT = '1食';
+
+export function customToFood(c: CustomFood): Food {
+  return { name: c.name, kcal: c.kcal, unit: CUSTOM_UNIT, custom: true };
 }
 
 export const FOODS: Food[] = [
@@ -86,12 +97,15 @@ export function normalize(s: string): string {
     .replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
 }
 
-/** 入力文字列に合う食品を、近いものから順に返す */
-export function searchFoods(query: string, limit = 8): Food[] {
+/**
+ * 入力文字列に合う食品を、近いものから順に返す。
+ * custom（マイメニュー）を渡すと同じ規則で検索し、同じ一致度なら先に並べる。
+ */
+export function searchFoods(query: string, limit = 8, custom: CustomFood[] = []): Food[] {
   const q = normalize(query);
   if (!q) return [];
   const scored: { food: Food; score: number }[] = [];
-  for (const food of FOODS) {
+  for (const food of [...custom.map(customToFood), ...FOODS]) {
     const keys = [food.name, ...(food.aliases ?? [])].map(normalize);
     let score = 0;
     for (const k of keys) {
@@ -104,7 +118,10 @@ export function searchFoods(query: string, limit = 8): Food[] {
   return scored.sort((a, b) => b.score - a.score).slice(0, limit).map((s) => s.food);
 }
 
-export function findFood(name: string): Food | undefined {
+/** 名前が完全一致する食品（マイメニューを優先） */
+export function findFood(name: string, custom: CustomFood[] = []): Food | undefined {
   const n = normalize(name);
+  const mine = custom.find((c) => normalize(c.name) === n);
+  if (mine) return customToFood(mine);
   return FOODS.find((f) => normalize(f.name) === n);
 }
