@@ -1,4 +1,5 @@
-import { useData } from '../lib/store';
+import { useData, useStoreStatus } from '../lib/store';
+import { daysSince, useSaveBackup } from '../components/DataSafety';
 import { summarizeDay, movingAverage7 } from '../lib/calc';
 import { formatDay, todayKey } from '../lib/date';
 import { go } from '../lib/router';
@@ -34,6 +35,8 @@ export default function Home() {
           </button>
         </div>
 
+        <BackupReminder />
+
         {latest && (
           <button className="card link-card" onClick={() => go('/graph')}>
             <span>体重 7日平均</span>
@@ -46,5 +49,24 @@ export default function Home() {
         <EstimateNote>摂取・消費カロリーはすべて推定値（目安）です。</EstimateNote>
       </div>
     </>
+  );
+}
+
+/** 最終バックアップから7日以上たったら、ファイルへの保存を促す */
+function BackupReminder() {
+  const data = useData();
+  const { meta } = useStoreStatus();
+  const { save, result } = useSaveBackup();
+  const since = daysSince(meta.lastBackupAt);
+  const hasRecords = data.meals.length + data.weights.length + data.exercises.length > 0;
+  if (!hasRecords || (since !== null && since < 7)) return result ? <p className="hint">{result}</p> : null;
+  return (
+    <div className="card backup-reminder" role="note">
+      <b>{since === null ? 'まだバックアップがありません' : `最終バックアップから${since}日たちました`}</b>
+      <p className="hint">Safari のデータ消去などに備えて、iPhone の「ファイル」に保存しておきましょう。</p>
+      <button className="btn block" onClick={save}>
+        バックアップを保存
+      </button>
+    </div>
   );
 }

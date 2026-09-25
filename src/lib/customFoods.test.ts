@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { actions, getData, recentFoods } from './store';
 import { findFood, searchFoods } from './foods';
+import { createBackup, parseBackup } from './backup';
 
 beforeEach(() => actions.resetAll());
 
@@ -45,12 +46,17 @@ describe('マイメニューの保存', () => {
   });
 
   it('マイメニュー導入前のバックアップも読み込める', () => {
-    actions.importJson(JSON.stringify({ version: 1, settings: null, weights: [], meals: [], exercises: [] }));
+    const old = parseBackup(JSON.stringify({ version: 1, settings: null, weights: [], meals: [], exercises: [] }));
+    if (!old.ok) throw new Error(old.error);
+    expect(actions.restore(old.data)).toEqual({ ok: true });
     expect(getData().customFoods).toEqual([]);
-    const json = actions.exportJson();
+    const backup = createBackup(getData(), new Date(), 'test').text;
     actions.saveCustomFood({ name: 'x', kcal: 1 });
-    expect(JSON.parse(actions.exportJson()).customFoods).toHaveLength(1);
-    actions.importJson(json);
+    const now = parseBackup(createBackup(getData(), new Date(), 'test').text);
+    expect(now.ok && now.data.customFoods).toHaveLength(1);
+    const back = parseBackup(backup);
+    if (!back.ok) throw new Error(back.error);
+    expect(actions.restore(back.data)).toEqual({ ok: true });
     expect(getData().customFoods).toEqual([]);
   });
 });

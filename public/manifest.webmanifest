@@ -1,9 +1,19 @@
 {
+  "id": "./",
   "name": "カロリー記録",
   "short_name": "カロリー記録",
+  "description": "毎日の摂取カロリー・消費カロリー・体重を記録するアプリ",
+  "lang": "ja",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#f4f5f7",
+  "orientation": "portrait",
+  "background_color": "#f2f3f5",
   "theme_color": "#1f2a3a",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
 }

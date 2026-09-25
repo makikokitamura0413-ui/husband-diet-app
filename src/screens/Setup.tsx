@@ -1,11 +1,13 @@
-import { useRef, useState } from 'react';
-import { actions, useData } from '../lib/store';
+import { useState } from 'react';
+import { actions, useData, useStoreStatus } from '../lib/store';
 import { ACTIVITY_LEVELS, calcBmr, calcDailyActivity, fmt } from '../lib/calc';
 import type { ActivityLevel, Sex } from '../lib/types';
 import { EstimateNote, Header, Segmented } from '../components/Layout';
 import { go } from '../lib/router';
 import { todayKey } from '../lib/date';
 import { parseNum } from '../lib/num';
+import { DataSafetyCard, RestoreFromFile, SnapshotList } from '../components/DataSafety';
+import { isStandalone } from '../platform/files';
 
 const num = parseNum;
 
@@ -18,7 +20,7 @@ export default function Setup({ firstRun = false }: { firstRun?: boolean }) {
   const [weight, setWeight] = useState(s ? String(s.weightKg) : '');
   const [level, setLevel] = useState<ActivityLevel>(s?.activityLevel ?? 'low');
   const [saved, setSaved] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const { snapshots } = useStoreStatus();
 
   const a = num(age);
   const h = num(height);
@@ -29,7 +31,8 @@ export default function Setup({ firstRun = false }: { firstRun?: boolean }) {
 
   const save = () => {
     if (!valid) return;
-    actions.saveSettings({ sex, age: Math.round(a), heightCm: h, weightKg: w, activityLevel: level });
+    // 保存できなかった場合（他の画面で更新済み・保存失敗など）は先へ進まない
+    if (!actions.saveSettings({ sex, age: Math.round(a), heightCm: h, weightKg: w, activityLevel: level })) return;
     if (firstRun) {
       // 初回の体重を今日の記録としても保存しておく
       actions.saveWeight({ date: todayKey(), weightKg: w });
@@ -37,25 +40,6 @@ export default function Setup({ firstRun = false }: { firstRun?: boolean }) {
     } else {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    }
-  };
-
-  const exportData = () => {
-    const blob = new Blob([actions.exportJson()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `diet-backup-${todayKey()}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const importData = async (file: File) => {
-    try {
-      actions.importJson(await file.text());
-      alert('データを読み込みました');
-    } catch (e) {
-      alert('読み込みに失敗しました: ' + (e as Error).message);
     }
   };
 
@@ -67,6 +51,23 @@ export default function Setup({ firstRun = false }: { firstRun?: boolean }) {
           <p className="lead">
             消費カロリーを推定するために、あなたの情報を入力してください。あとから「設定」で変更できます。
           </p>
+        )}
+        {firstRun && (
+          <div className="card restore-first">
+            <h2>以前の記録がある場合</h2>
+            <p className="hint">
+              この画面（{isStandalone() ? 'ホーム画面のアプリ' : 'このブラウザ'}）には保存データがありません。以前の記録がある場合は、
+              初期設定をする前にバックアップファイルから復元してください。
+              {isStandalone() && ' ホーム画面のアプリは Safari とは別の保存場所です。'}
+            </p>
+            <RestoreFromFile />
+            {snapshots.length > 0 && (
+              <>
+                <div className="group-title">この端末に残っている控え</div>
+                <SnapshotList />
+              </>
+            )}
+          </div>
         )}
         <div className="card form">
           <label className="field">
@@ -143,31 +144,7 @@ export default function Setup({ firstRun = false }: { firstRun?: boolean }) {
           <p className="hint">年齢・身長・体重を正しく入力してください。</p>
         )}
 
-        {!firstRun && (
-          <div className="card data-tools">
-            <h2>データ</h2>
-            <p className="hint">データはこの端末（ブラウザ）内に保存されています。機種変更などに備えてバックアップできます。</p>
-            <div className="btn-row">
-              <button className="btn" onClick={exportData}>バックアップを保存</button>
-              <button className="btn" onClick={() => fileRef.current?.click()}>バックアップから復元</button>
-            </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])}
-            />
-            <button
-              className="btn danger-text"
-              onClick={() => {
-                if (confirm('すべての記録と設定を削除します。よろしいですか？')) actions.resetAll();
-              }}
-            >
-              すべてのデータを削除
-            </button>
-          </div>
-        )}
+        {!firstRun && <DataSafetyCard />}
       </div>
     </>
   );
