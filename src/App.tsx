@@ -1,4 +1,4 @@
-import { useData } from './lib/store';
+import { useData, useStoreStatus } from './lib/store';
 import { useRoute } from './lib/router';
 import { todayKey } from './lib/date';
 import { TabBar } from './components/Layout';
@@ -11,15 +11,27 @@ import ExerciseForm from './screens/ExerciseForm';
 import WeightForm from './screens/WeightForm';
 import MonthSummaryScreen from './screens/MonthSummary';
 import WeightGraph from './screens/WeightGraph';
+import ProtectScreen from './screens/ProtectScreen';
+import { NoticeBar } from './components/NoticeBar';
 
 const isDate = (s: string | undefined): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 export default function App() {
   const data = useData();
+  const { status } = useStoreStatus();
   const { path, query } = useRoute();
 
+  // 保存データを読み込めなかったときは保護モード（初期設定・保存は一切できない）
+  if (status === 'error') return <ProtectScreen />;
+
   // 初回は設定画面を必ず通す
-  if (!data.settings) return <Setup firstRun />;
+  if (!data.settings)
+    return (
+      <div className="app">
+        <NoticeBar />
+        <Setup firstRun />
+      </div>
+    );
 
   const [page, arg] = path;
   const date = isDate(arg) ? arg : todayKey();
@@ -58,6 +70,7 @@ export default function App() {
   const isForm = page === 'meal' || page === 'exercise' || page === 'weight';
   return (
     <div className="app">
+      <NoticeBar />
       <main className="main">{screen}</main>
       {!isForm && <TabBar active={tab} />}
     </div>

@@ -353,3 +353,44 @@ input::placeholder { color: var(--muted); opacity: .85; }
 .free-card { border: 1.5px solid var(--primary); }
 .free-card h2 { font-size: 17px; color: var(--text); }
 .section-title { font-size: 14px; color: var(--text-2); margin: 6px 2px -6px; }
+
+/* データ保護・バックアップ */
+.notice-bar {
+  position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 8px;
+  padding: 10px 8px 10px 16px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--line-strong);
+}
+.notice-bar span { flex: 1; }
+.notice-bar.error { background: var(--over-bg); color: var(--text); border-left: 4px solid var(--danger); }
+.notice-bar.info { background: var(--surface-2); color: var(--text); border-left: 4px solid var(--primary); }
+.notice-bar .icon-btn { font-size: 22px; }
+.protect-box {
+  border-radius: var(--radius); padding: 16px; background: var(--over-bg);
+  border: 2px solid var(--danger); display: flex; flex-direction: column; gap: 8px;
+}
+.protect-box h2 { font-size: 18px; color: var(--text); }
+.protect-box p { margin: 0; }
+.protect-reason { font-size: 13px; color: var(--text-2); word-break: break-all; }
+.warn-box {
+  padding: 10px 12px; border-radius: 10px; font-size: 14px; background: var(--over-bg);
+  border: 1px solid color-mix(in srgb, var(--over) 45%, transparent);
+}
+.verify-box { padding: 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 6px; }
+.verify-box p { margin: 0; }
+.verify-box.ok { background: var(--good-bg); border: 1px solid color-mix(in srgb, var(--good) 45%, transparent); }
+.verify-box.ok > b { color: var(--good); }
+.verify-box.ng { background: var(--over-bg); border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); }
+.verify-box.ng > b { color: var(--danger); }
+.safety-block { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.safety-block h3 { margin: 0; font-size: 15px; color: var(--text); }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.kv span { color: var(--text-2); white-space: nowrap; }
+.kv b { text-align: right; }
+.howto summary { cursor: pointer; font-weight: 700; color: var(--primary); padding: 6px 0; }
+.howto ol { margin: 4px 0 8px; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.btn.small { min-height: 40px; padding: 6px 14px; font-size: 14px; }
+.list-main.static { cursor: default; }
+.snapshot-list li { gap: 8px; }
+.compare-table td { font-size: 14px; white-space: nowrap; }
+.compare-table th { white-space: nowrap; padding-right: 8px; }
+.backup-reminder { border-left: 4px solid var(--primary); }
+.restore-first h2 { font-size: 16px; color: var(--text); }
